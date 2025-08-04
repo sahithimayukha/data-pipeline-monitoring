@@ -1,0 +1,5 @@
+pyodbc
+python-dotenv
+azure-eventhub
+azure-functions
+azure-storage-blob
