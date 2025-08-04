@@ -2,8 +2,8 @@ import logging
 import time
 import random
 import json
-import os
 import sys
+import os
 from dotenv import load_dotenv
 from azure.eventhub import EventHubProducerClient, EventData
 

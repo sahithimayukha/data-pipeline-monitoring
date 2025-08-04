@@ -1,5 +1,3 @@
-# DataPipelineMonitorFunction/function_app.py
-
 import logging
 import json
 import sys
@@ -8,10 +6,12 @@ from datetime import datetime, timedelta
 
 import azure.functions as func
 
+# This is a critical step to ensure our function can find the 'src' package.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.main import PipelineOrchestrator
 
+# Define a Function App instance
 app = func.FunctionApp()
 
 @app.event_hub_message_trigger(

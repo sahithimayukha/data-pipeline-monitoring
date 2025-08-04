@@ -1,5 +1,3 @@
-# DataPipelineMonitorFunction/src/database/db_manager.py
-
 import pyodbc
 import os
 from datetime import datetime, timedelta
@@ -175,6 +173,19 @@ class DBManager:
                 );
             ''')
             logger.info("DLQEvents table ensured.")
+            cursor.execute('''
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='FactPipelineRuns_Staging')
+                CREATE TABLE FactPipelineRuns_Staging (
+                    pipeline_name VARCHAR(255),
+                    success VARCHAR(5),
+                    start_timestamp VARCHAR(50),
+                    end_timestamp VARCHAR(50),
+                    duration_seconds INT,
+                    error_category VARCHAR(100),
+                    error_message VARCHAR(MAX)
+                );
+            ''')
+            logger.info("FactPipelineRuns_Staging table ensured.")
             self.cnxn.commit()
             logger.info("All tables created/ensured successfully.")
 

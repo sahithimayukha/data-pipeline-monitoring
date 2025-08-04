@@ -5,7 +5,6 @@ import sys
 import json
 import uuid
 import os
-import csv
 from datetime import datetime, timedelta
 from azure.storage.blob import BlobServiceClient
 
@@ -24,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class PipelineOrchestrator:
     def __init__(self):
+        # Get the connection string from the existing AzureWebJobsStorage setting
         self._staging_conn_str = os.getenv('AzureWebJobsStorage')
         self._staging_container = os.getenv('AZURE_STAGING_CONTAINER')
 
@@ -35,26 +35,34 @@ class PipelineOrchestrator:
         logger.info("Pipeline orchestrator initialized for blob storage.")
 
     def _write_to_blob(self, event_data: dict, file_name: str):
-        """Writes a single event to a CSV file in blob storage."""
+        """Writes a single event to a CSV file in blob storage with a date-based folder structure."""
         try:
+            # Construct the file path with date-based folders
+            date_part = datetime.now().strftime("%Y/%m/%d")
+            full_path = f"{date_part}/{file_name}"
+
             blob_client = self._blob_service_client.get_blob_client(
-                container=self._staging_container, blob=file_name
+                container=self._staging_container, blob=full_path
             )
 
+            # Write a single row as CSV
             import io
+            import csv
             output = io.StringIO()
             writer = csv.writer(output)
 
+            # Write header if it's the first row
             writer.writerow(event_data.keys())
             writer.writerow(event_data.values())
 
             blob_client.upload_blob(output.getvalue(), overwrite=True)
-            logger.info(f"Successfully wrote event to blob: {file_name}")
+            logger.info(f"Successfully wrote event to blob: {full_path}")
         except Exception as e:
             logger.error(f"Failed to write to blob storage: {e}")
             raise
 
     def process_event(self, event_data: dict):
+        """Processes a single event and writes it to staging."""
         pipeline_name = event_data.get("pipeline_name")
         if not pipeline_name:
             logger.error("Event received without a 'pipeline_name'. Skipping.")
@@ -64,6 +72,7 @@ class PipelineOrchestrator:
         self._write_to_blob(event_data, file_name)
 
     def run_continuous_simulation(self, total_runs=100):
+        """Simulates pipeline runs and writes final results to staging."""
         logger.info(f"Starting continuous simulation for {total_runs} total runs.")
         run_count = 0
 
