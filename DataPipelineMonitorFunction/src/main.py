@@ -5,6 +5,7 @@ import sys
 import json
 import uuid
 import os
+import csv
 from datetime import datetime, timedelta
 from azure.storage.blob import BlobServiceClient
 
@@ -35,23 +36,19 @@ class PipelineOrchestrator:
         logger.info("Pipeline orchestrator initialized for blob storage.")
 
     def _write_to_blob(self, event_data: dict, file_name: str):
-        """Writes a single event to a CSV file in blob storage with a date-based folder structure."""
+        """Writes a single event to a CSV file in blob storage with a simple folder structure."""
         try:
-            # Construct the file path with date-based folders
-            date_part = datetime.now().strftime("%Y/%m/%d")
-            full_path = f"{date_part}/{file_name}"
-
+            # The file path is now just the container name and the file name
+            full_path = file_name
             blob_client = self._blob_service_client.get_blob_client(
                 container=self._staging_container, blob=full_path
             )
 
             # Write a single row as CSV
             import io
-            import csv
             output = io.StringIO()
             writer = csv.writer(output)
 
-            # Write header if it's the first row
             writer.writerow(event_data.keys())
             writer.writerow(event_data.values())
 
