@@ -69,25 +69,52 @@ class PipelineOrchestrator:
         self._write_to_blob(event_data, file_name)
 
     def run_continuous_simulation(self, total_runs=100):
-        """Simulates pipeline runs and writes final results to staging."""
+        """Simulates pipeline runs and handles max_attempts logic."""
         logger.info(f"Starting continuous simulation for {total_runs} total runs.")
         run_count = 0
 
         while run_count < total_runs:
             pipeline = random.choice(self._pipelines)
-            run_result = pipeline.execute(attempt_number=1)
+            attempt_number = 1
 
-            event_data = {
-                "pipeline_name": pipeline.name,
-                "success": run_result.success,
-                "start_timestamp": run_result.start_timestamp.isoformat(),
-                "end_timestamp": run_result.end_timestamp.isoformat(),
-                "duration_seconds": run_result.duration_seconds,
-                "error_category": run_result.error_category,
-                "error_message": run_result.error_message
-            }
+            while attempt_number <= constants.MAX_ATTEMPTS:
+                run_result = pipeline.execute(attempt_number=attempt_number)
 
-            self.process_event(event_data)
+                if run_result.success:
+                    event_data = {
+                        "pipeline_name": pipeline.name,
+                        "success": run_result.success,
+                        "start_timestamp": run_result.start_timestamp.isoformat(),
+                        "end_timestamp": run_result.end_timestamp.isoformat(),
+                        "duration_seconds": run_result.duration_seconds,
+                        "error_category": run_result.error_category,
+                        "error_message": run_result.error_message,
+                        "attempt_number": attempt_number,
+                        "is_dlq": False
+                    }
+                    self.process_event(event_data, attempt_number)
+                    break
+                else:
+                    if attempt_number == constants.MAX_ATTEMPTS:
+                        event_data = {
+                            "pipeline_name": pipeline.name,
+                            "success": run_result.success,
+                            "start_timestamp": run_result.start_timestamp.isoformat(),
+                            "end_timestamp": run_result.end_timestamp.isoformat(),
+                            "duration_seconds": run_result.duration_seconds,
+                            "error_category": run_result.error_category,
+                            "error_message": run_result.error_message,
+                            "attempt_number": attempt_number,
+                            "is_dlq": True
+                        }
+                        self.process_event(event_data, attempt_number)
+                        break
+                    wait_time = constants.BASE_BACKOFF_TIME_SECONDS * (2 ** (attempt_number - 1))
+                    jitter = random.uniform(0, 1) * wait_time * 0.1
+                    sleep_duration = wait_time + jitter
+                    time.sleep(sleep_duration)
+
+                attempt_number += 1
 
             run_count += 1
             time.sleep(random.uniform(2, 10))
